@@ -52,19 +52,11 @@ class HyperplaneCollection(object):
             return self
 
         else:
-            positions = np.ones(points.shape[0])
-            while np.all(positions > 0) or \
-                    np.all(positions < 0) or \
-                    np.all(positions == 0):
-
-                print(points.shape)
-                self.splitting_plane = generate_splitting_plane(points)
-                positions = self.splitting_plane.position_of_points(points)
+            self.splitting_plane = generate_splitting_plane(points)
+            positions = self.splitting_plane.position_of_points(points)
 
             points_left = points[np.where(positions < 0)]
             points_right = points[np.where(positions > 0)]
-            print(points_left.shape)
-            print(points_right.shape)
 
             self.child_left = HyperplaneCollection(points_left)
             self.child_right = HyperplaneCollection(points_right)
@@ -111,7 +103,7 @@ def generate_splitting_plane(points):
 
     alpha = np.random.randn(1)
     z = alpha * p_1 + (1.0 - alpha) * p_2
-    plane = np.random.randn(X.shape[0] * X.shape[1]).reshape(X.shape[0], X.shape[1])
+    plane = np.random.randn(z.shape[0]).reshape(z.shape)
     beta = -np.matmul(np.transpose(plane), z)
 
     return Hyperplane(z=z, plane=plane, beta=beta)
