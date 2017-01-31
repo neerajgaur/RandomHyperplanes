@@ -1,6 +1,10 @@
 """ Proof of concept for the random-cut-hyperplanes idea """
+import sys
 import numpy as np
 from scipy.stats import scoreatpercentile
+from sklearn.metrics import confusion_matrix
+
+# sys.setrecursionlimit(50000)
 
 # Steps for the algorithm
 #
@@ -19,18 +23,11 @@ class RandomHyperplanes(object):
         self.n_estimators = n_estimators
 
     def fit(self, X):
-        for i in range(self.n_estimators):
-            if i % 10 == 0:
-                print(i)
-
         self.planes = list(self._fit(X))
         return self
 
     def _fit(self, X):
         for i in range(self.n_estimators):
-            if i % 10 == 0:
-                print(i)
-
             yield HyperplaneCollection(X)
 
 
@@ -45,11 +42,12 @@ class RandomHyperplanes(object):
 
 
 class HyperplaneCollection(object):
-    def __init__(self, points):
+    def __init__(self, points, group_threshold=15, depth=1):
         self.child_left = self.child_right = None
         self.points = points
+        self.group_threshold = group_threshold
         self.num_points = self.points.shape[0]
-        self.split(self.points)
+        self.split(self.points, depth)
 
     def __str__(self):
         return f"<{self.__class__.__name__} num_points:{self.num_points}>"
@@ -58,27 +56,15 @@ class HyperplaneCollection(object):
     def is_leaf(self):
         return self.child_left == None and self.child_right == None
 
-    def split(self, points):
-        if points.shape[0] == 1:
-            # done splitting
+    def split(self, points, depth=1):
+        plane, points_left, points_right = self.get_split(points)
+
+        if not plane or depth >= 50:
             return self
 
-        else:
-            self.splitting_plane = generate_splitting_plane(points)
-            positions = self.splitting_plane.position_of_points(points)
-
-            points_left = points[np.where(positions < 0)]
-            points_right = points[np.where(positions > 0)]
-
-            while points_left.shape[0] == 0 or points_right.shape[0] == 0:
-                self.splitting_plane = generate_splitting_plane(points)
-                positions = self.splitting_plane.position_of_points(points)
-
-                points_left = points[np.where(positions < 0)]
-                points_right = points[np.where(positions > 0)]
-
-            self.child_left = HyperplaneCollection(points_left)
-            self.child_right = HyperplaneCollection(points_right)
+        self.splitting_plane = plane
+        self.child_left = HyperplaneCollection(points_left, depth=depth + 1)
+        self.child_right = HyperplaneCollection(points_right, depth=depth + 1)
 
     def decision_function(self, points):
         return np.array([self.get_depth(point) for point in points])
@@ -93,19 +79,33 @@ class HyperplaneCollection(object):
             else:
                 return 1 + self.child_right.get_depth(point)
 
+    def get_split(self, points):
+        if points.shape[0] <= self.group_threshold:
+            return (None, None, None)
+
+        splitting_plane = generate_splitting_plane(points)
+        positions = splitting_plane.position_of_points(points)
+
+        points_left = points[np.where(positions < 0)]
+        points_right = points[np.where(positions > 0)]
+
+        return (splitting_plane, points_left, points_right)
 
 class Hyperplane(object):
-    def __init__(self, z, plane, beta):
-        self.z = z
-        self.plane = plane
-        self.beta = beta
+    def __init__(self, origin, normal):
+        self.origin = origin
+        self.normal = normal
 
     def point_relative_to_plane(self, point):
-        return np.dot(np.transpose(self.plane), point) + self.beta
+        return np.dot(self.normal, point - self.origin)
 
     def position_of_points(self, points):
         position = np.array([self.point_relative_to_plane(point) for point in points])
         return position
+
+
+
+
 
 def average_path_length(n):
     return 2 * harmonic_approx(n - 1) - (2 * (n - 1) / n)
@@ -114,20 +114,17 @@ def harmonic_approx(n):
     return np.log(n) + 0.5772156649
 
 def generate_splitting_plane(points):
-    p_1 = 0
-    p_2 = 0
+    # Generate n points for each feature range
+    # Use those as the coefs of a normal
+    # Split on those points
 
-    p = points[np.random.randint(points.shape[0], size=2), :]
-    p_1 = p[0]
-    p_2 = p[1]
+    feature_ranges = get_feature_ranges(points)
+    origin = np.zeros(shape=points.shape[-1])
 
-    alpha = np.random.uniform()
-    z = alpha * p_1 + (1.0 - alpha) * p_2
+    normal = np.fromiter(generate_point(points), dtype=float)
+    normal -= origin
 
-    plane = np.random.randn(z.shape[0]).reshape(z.shape)
-    beta = -np.matmul(np.transpose(plane), z)
-
-    return Hyperplane(z=z, plane=plane, beta=beta)
+    return Hyperplane(origin=origin, normal=normal)
 
 
 def generate_point(points):
@@ -135,14 +132,9 @@ def generate_point(points):
 
     For now just do so by sampling the points from a uniform distribution.
     """
-    feature_mins_maxes = list(get_feature_ranges(points))
-    normal = \
-        np.array(
-            [np.random.uniform(
-                low=min_, high=max_
-            ) for min_, max_ in feature_mins_maxes])
-    return normal
-
+    feature_mins_maxes = get_feature_ranges(points)
+    for min_, max_, in get_feature_ranges(points):
+        yield np.random.uniform(low=min_, high=max_)
 
 def get_feature_ranges(points):
     """ Yields the min and max of each feature in a vector. """
@@ -169,22 +161,39 @@ def calculate_normal(points, origin):
     return normal
 
 if __name__ == "__main__":
-    n = 100 # number of entries
-    p = 20  # features
+    n = 10000 # number of entries
+    p = 200  # features
     infection_pct = 0.05
     num_anomalies = int(n * infection_pct)
     X = np.random.randn(n * p).reshape(n, p)
     is_anomaly = [np.random.randint(100) < 5 for _ in range(n)]
-    X[np.where(is_anomaly)] = 10 * np.random.randn(1, p) + 5.0
+    X[np.where(is_anomaly)] = 10 * np.random.randn(1, p)
     y = np.zeros(shape=(n,))
     y[np.where(is_anomaly)] = 1.0
 
-    rhp = RandomHyperplanes().fit(X)
+    print("Beginning fit...")
+    rhp = RandomHyperplanes(n_estimators=5)
+    rhp = rhp.fit(X)
     print("done fitting")
     scores = rhp.decision_function(X)
-    threshold = scoreatpercentile(scores, 5.0)
-    print(threshold)
+    threshold = scoreatpercentile(scores, infection_pct)
+    anomalies = scores <= threshold
+    y_pred = np.zeros(shape=anomalies.shape)
+    y_pred[anomalies] = 1
 
-    print(np.count_nonzero(scores < threshold))
-    print(np.count_nonzero(y))
+
+    correct_guesses = np.count_nonzero(y[np.where(scores <= threshold)])
+    incorrect_guesses = y[np.where(scores <= threshold)].shape[0] - correct_guesses
+
+    print("Correct guesses:", correct_guesses)
+    print("Incorrect guesses:", incorrect_guesses)
+    print("Expected", np.count_nonzero(y), "anomalies")
+    cnf_matrix = confusion_matrix(y, y_pred)
+    cnf_matrix = cnf_matrix.astype('float') / cnf_matrix.sum(axis=1)[:, np.newaxis]
+
+    print(cnf_matrix)
+
+
+
+
 
