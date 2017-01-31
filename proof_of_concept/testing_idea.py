@@ -15,12 +15,24 @@ from scipy.stats import scoreatpercentile
 #
 
 class RandomHyperplanes(object):
-    def __init__(self, n_estimators=100):
+    def __init__(self, n_estimators=10):
         self.n_estimators = n_estimators
 
     def fit(self, X):
-        self.planes = [HyperplaneCollection(X) for _ in range(self.n_estimators)]
+        for i in range(self.n_estimators):
+            if i % 10 == 0:
+                print(i)
+
+        self.planes = list(self._fit(X))
         return self
+
+    def _fit(self, X):
+        for i in range(self.n_estimators):
+            if i % 10 == 0:
+                print(i)
+
+            yield HyperplaneCollection(X)
+
 
     def decision_function(self, X):
         depths = np.array([plane.decision_function(X) for plane in self.planes])
@@ -36,8 +48,8 @@ class HyperplaneCollection(object):
     def __init__(self, points):
         self.child_left = self.child_right = None
         self.points = points
-        self.split(self.points)
         self.num_points = self.points.shape[0]
+        self.split(self.points)
 
     def __str__(self):
         return f"<{self.__class__.__name__} num_points:{self.num_points}>"
@@ -47,7 +59,7 @@ class HyperplaneCollection(object):
         return self.child_left == None and self.child_right == None
 
     def split(self, points):
-        if points.shape[0] == 1 or points.shape[0] < points.shape[-1]:
+        if points.shape[0] == 1:
             # done splitting
             return self
 
@@ -58,6 +70,13 @@ class HyperplaneCollection(object):
             points_left = points[np.where(positions < 0)]
             points_right = points[np.where(positions > 0)]
 
+            while points_left.shape[0] == 0 or points_right.shape[0] == 0:
+                self.splitting_plane = generate_splitting_plane(points)
+                positions = self.splitting_plane.position_of_points(points)
+
+                points_left = points[np.where(positions < 0)]
+                points_right = points[np.where(positions > 0)]
+
             self.child_left = HyperplaneCollection(points_left)
             self.child_right = HyperplaneCollection(points_right)
 
@@ -66,6 +85,7 @@ class HyperplaneCollection(object):
 
     def get_depth(self, point):
         if self.is_leaf:
+            # return self.num_points + average_path_length(self.num_points)
             return self.num_points + harmonic_approx(self.num_points)
         else:
             if self.splitting_plane.point_relative_to_plane(point) < 0:
@@ -97,12 +117,13 @@ def generate_splitting_plane(points):
     p_1 = 0
     p_2 = 0
 
-    while np.all(p_1 == p_2):
-        p_1 = points[np.random.randint(0, high=X.shape[-1])]
-        p_2 = points[np.random.randint(0, high=X.shape[-1])]
+    p = points[np.random.randint(points.shape[0], size=2), :]
+    p_1 = p[0]
+    p_2 = p[1]
 
-    alpha = np.random.randn(1)
+    alpha = np.random.uniform()
     z = alpha * p_1 + (1.0 - alpha) * p_2
+
     plane = np.random.randn(z.shape[0]).reshape(z.shape)
     beta = -np.matmul(np.transpose(plane), z)
 
@@ -149,18 +170,21 @@ def calculate_normal(points, origin):
 
 if __name__ == "__main__":
     n = 100 # number of entries
-    p = 7  # features
+    p = 20  # features
     infection_pct = 0.05
     num_anomalies = int(n * infection_pct)
     X = np.random.randn(n * p).reshape(n, p)
     is_anomaly = [np.random.randint(100) < 5 for _ in range(n)]
-    X[np.where(is_anomaly)] = 10 * np.random.randn(1, p)
+    X[np.where(is_anomaly)] = 10 * np.random.randn(1, p) + 5.0
+    y = np.zeros(shape=(n,))
+    y[np.where(is_anomaly)] = 1.0
 
     rhp = RandomHyperplanes().fit(X)
+    print("done fitting")
     scores = rhp.decision_function(X)
     threshold = scoreatpercentile(scores, 5.0)
+    print(threshold)
 
-    print(len(np.where(scores < threshold)))
-    print(scores < threshold)
-    print(scores)
+    print(np.count_nonzero(scores < threshold))
+    print(np.count_nonzero(y))
 
