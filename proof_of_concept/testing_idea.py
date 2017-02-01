@@ -138,6 +138,11 @@ class RandomHyperplanes(object):
 
         return scores
 
+    def get_depths(self, points):
+        depths = np.array([plane.decision_function(X) for plane in self.planes])
+        mean_depths = np.mean(depths, axis=0)
+        return mean_depths
+
 
 class HyperplaneCollection(object):
     def __init__(self, points, group_threshold=15, depth=1):
@@ -285,10 +290,25 @@ def run_plane_simul(X, y):
     print("Expected", np.count_nonzero(y), "anomalies")
 
     cnf_matrix = confusion_matrix(y, y_pred)
+
+    tn, fp, fn, tp = cnf_matrix.ravel()
+    print(f"tp: {tp} \ntn: {tn} \nfp: {fp} \nfn: {fn}")
+
     cnf_matrix = cnf_matrix.astype('float') / \
         cnf_matrix.sum(axis=1)[:, np.newaxis]
 
+    tn, fp, fn, tp = cnf_matrix.ravel()
+    print(f"Normalized \ntp: {tp} \ntn: {tn} \nfp: {fp} \nfn: {fn}")
+
     print(cnf_matrix)
+
+    depths = rhp.get_depths(X)
+    anomalous_depths = depths[anomalies]
+    print("Average anomalous depth:", np.mean(anomalous_depths))
+
+    non_anomalous_depths = depths[np.logical_not(anomalies)]
+    print("Average non-anomalous depth:", np.mean(non_anomalous_depths))
+
 
 def run_iforest_simul(X, y):
     print("Beginning iforest fit...")
@@ -311,28 +331,60 @@ def run_iforest_simul(X, y):
     print("Expected", np.count_nonzero(y), "anomalies")
 
     iforest_cnf_matrix = confusion_matrix(y, y_pred)
+    tn, fp, fn, tp = iforest_cnf_matrix.ravel()
+    print(f"tp: {tp} \ntn: {tn} \nfp: {fp} \nfn: {fn}")
+
     iforest_cnf_matrix = iforest_cnf_matrix.astype('float') / \
             iforest_cnf_matrix.sum(axis=1)[:, np.newaxis]
 
     print(iforest_cnf_matrix)
 
+    tn, fp, fn, tp = iforest_cnf_matrix.ravel()
+    print(f"Normalized \ntp: {tp} \ntn: {tn} \nfp: {fp} \nfn: {fn}")
 
-if __name__ == "__main__":
-    n = 1000 # number of entries
-    p = 300  # features
+    depths = iforest.get_depths(X)
+    anomalous_depths = depths[anomalies]
+    print("Average anomalous depth:", np.mean(anomalous_depths))
 
-    infection_pct = 0.05
+    non_anomalous_depths = depths[np.logical_not(anomalies)]
+    print("Average non-anomalous depth:", np.mean(non_anomalous_depths))
+
+
+def _gen_hard_data(n, p, infection_pct, variance=10.0, mu=5.0):
     X = np.random.randn(n * p).reshape(n, p)
 
+    # hard data
     # Weight it to the number of features
     is_anomaly = np.random.rand(n, p) < (infection_pct / p)
-    X[is_anomaly] = 10.0 * np.random.randn() + 5.0
+    X[is_anomaly] = variance * np.random.randn() + mu
 
     y = np.zeros(shape=(n,))
 
     tmp = np.array([np.any(r) for r in is_anomaly])
     y[tmp] = 1.0
 
+    return (X, y)
+
+def _gen_easy_data(n, p, infection_pct, variance=10.0, mu=5.0):
+    X = np.random.randn(n * p).reshape(n, p)
+
+    # hard data
+    # Weight it to the number of features
+    is_anomaly = np.random.rand(n) < infection_pct
+    X[is_anomaly] = variance * np.random.randn() + mu
+
+    y = np.zeros(shape=(n,))
+    y[is_anomaly] = 1.0
+
+    return (X, y)
+
+if __name__ == "__main__":
+    n = 5000 # number of entries
+    p = 300   # features
+
+    infection_pct = 0.05
+    X, y = _gen_easy_data(n, p, infection_pct)
+
     run_plane_simul(X, y)
-    print("Done plane simul-----")
+    print("\nDone plane simul-----\n")
     run_iforest_simul(X, y)
