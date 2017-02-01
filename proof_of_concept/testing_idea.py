@@ -4,6 +4,9 @@ import numpy as np
 from scipy.stats import scoreatpercentile
 from sklearn.metrics import confusion_matrix
 
+N_ESTIMATORS = 100
+SCORE_AT = 2.5
+
 # sys.setrecursionlimit(50000)
 
 # Steps for the algorithm
@@ -17,6 +20,102 @@ from sklearn.metrics import confusion_matrix
 #   6. Repeat for the two sides.
 #   7. If an individual point is left, stop iteration
 #
+class IsolationForest(object):
+    def __init__(self, n_estimators=10):
+        self.n_estimators = n_estimators
+
+    def fit(self, X):
+        self.trees = list(self._fit(X))
+        return self
+
+    def _fit(self, X):
+        for i in range(self.n_estimators):
+            yield IsolationTree(X)
+
+    def decision_function(self, X):
+        depths = np.array([tree.decision_function(X) for tree in self.trees])
+        mean_depths = np.mean(depths, axis=0)
+
+        # Normalize the points
+        scores = 0.5 - 2 ** -1.0 * (mean_depths / average_path_length(X.shape[0]))
+
+        return scores
+
+    def get_depths(self, points):
+        depths = np.array([tree.decision_function(X) for tree in self.trees])
+        mean_depths = np.mean(depths, axis=0)
+        return mean_depths
+
+
+class IsolationTree(object):
+    def __init__(self, points, group_threshold=15, depth=1):
+        self.child_left = self.child_right = None
+        self.points = points
+        self.group_threshold = group_threshold
+        self.num_points = self.points.shape[0]
+        self.split(self.points, depth)
+
+    def __str__(self):
+        return f"<{self.__class__.__name__} num_points:{self.num_points}>"
+
+    @property
+    def is_leaf(self):
+        return self.child_left == None and self.child_right == None
+
+    def split(self, points, depth=1):
+        node, points_left, points_right = self.get_split(points)
+
+        if not node or depth >= 50:
+            return self
+
+        self.node = node
+        self.child_left = IsolationTree(points_left, depth=depth + 1)
+        self.child_right = IsolationTree(points_right, depth=depth + 1)
+
+    def decision_function(self, points):
+        return np.array([self.get_depth(point) for point in points])
+
+    def get_depth(self, point):
+        if self.is_leaf:
+            # return self.num_points + average_path_length(self.num_points)
+            if self.num_points == 0:
+                print("Empty array uh oh :(")
+                self.num_points = 1 # Dirty bug fix
+
+            return self.num_points + harmonic_approx(self.num_points)
+        else:
+            if self.node.is_point_left(point):
+                return 1 + self.child_left.get_depth(point)
+            else:
+                return 1 + self.child_right.get_depth(point)
+
+    def get_split(self, points):
+        if points.shape[0] <= self.group_threshold:
+            return (None, None, None)
+
+        split_feature = sample_feature(points)
+        split_threshold = sample_split_threshold(points, split_feature)
+        node = Node(split_threshold, split_feature)
+
+        positions = node.position_of_points(points)
+
+        points_left = points[positions]
+        points_right = points[np.logical_not(positions)]
+
+        return (node, points_left, points_right)
+
+
+class Node(object):
+    def __init__(self, threshold, feature):
+        self.threshold = threshold
+        self.feature = feature
+
+    def is_point_left(self, point):
+        return point[self.feature] < self.threshold
+
+    def position_of_points(self, points):
+        return np.array([self.is_point_left(point) for point in points])
+
 
 class RandomHyperplanes(object):
     def __init__(self, n_estimators=10):
@@ -29,7 +128,6 @@ class RandomHyperplanes(object):
     def _fit(self, X):
         for i in range(self.n_estimators):
             yield HyperplaneCollection(X)
-
 
     def decision_function(self, X):
         depths = np.array([plane.decision_function(X) for plane in self.planes])
@@ -91,6 +189,7 @@ class HyperplaneCollection(object):
 
         return (splitting_plane, points_left, points_right)
 
+
 class Hyperplane(object):
     def __init__(self, origin, normal):
         self.origin = origin
@@ -104,8 +203,12 @@ class Hyperplane(object):
         return position
 
 
+def sample_feature(point):
+    length = point.shape[-1]
+    return np.random.randint(low=0, high=length)
 
-
+def sample_split_threshold(points, feature):
+    return list(generate_point(points))[feature]
 
 def average_path_length(n):
     return 2 * harmonic_approx(n - 1) - (2 * (n - 1) / n)
@@ -160,40 +263,76 @@ def calculate_normal(points, origin):
     normal = np.matmul(points_inv, solution_vec)
     return normal
 
-if __name__ == "__main__":
-    n = 10000 # number of entries
-    p = 200  # features
-    infection_pct = 0.05
-    num_anomalies = int(n * infection_pct)
-    X = np.random.randn(n * p).reshape(n, p)
-    is_anomaly = [np.random.randint(100) < 5 for _ in range(n)]
-    X[np.where(is_anomaly)] = 10 * np.random.randn(1, p)
-    y = np.zeros(shape=(n,))
-    y[np.where(is_anomaly)] = 1.0
 
-    print("Beginning fit...")
-    rhp = RandomHyperplanes(n_estimators=5)
+def run_plane_simul(X, y):
+    print("Beginning plane fit...")
+    rhp = RandomHyperplanes(n_estimators=N_ESTIMATORS)
     rhp = rhp.fit(X)
     print("done fitting")
+
     scores = rhp.decision_function(X)
-    threshold = scoreatpercentile(scores, infection_pct)
+    threshold = scoreatpercentile(scores, SCORE_AT)
     anomalies = scores <= threshold
     y_pred = np.zeros(shape=anomalies.shape)
     y_pred[anomalies] = 1
 
-
     correct_guesses = np.count_nonzero(y[np.where(scores <= threshold)])
-    incorrect_guesses = y[np.where(scores <= threshold)].shape[0] - correct_guesses
+    incorrect_guesses = y[np.where(scores <= threshold)].shape[0] - \
+        correct_guesses
 
     print("Correct guesses:", correct_guesses)
     print("Incorrect guesses:", incorrect_guesses)
     print("Expected", np.count_nonzero(y), "anomalies")
+
     cnf_matrix = confusion_matrix(y, y_pred)
-    cnf_matrix = cnf_matrix.astype('float') / cnf_matrix.sum(axis=1)[:, np.newaxis]
+    cnf_matrix = cnf_matrix.astype('float') / \
+        cnf_matrix.sum(axis=1)[:, np.newaxis]
 
     print(cnf_matrix)
 
+def run_iforest_simul(X, y):
+    print("Beginning iforest fit...")
+    iforest = IsolationForest(n_estimators=N_ESTIMATORS)
+    iforest = iforest.fit(X)
+    print("done fitting")
+
+    scores = iforest.decision_function(X)
+    threshold = scoreatpercentile(scores, SCORE_AT)
+    anomalies = scores <= threshold
+    y_pred = np.zeros(shape=anomalies.shape)
+    y_pred[anomalies] = 1
+
+    correct_guesses = np.count_nonzero(y[np.where(scores <= threshold)])
+    incorrect_guesses = y[np.where(scores <= threshold)].shape[0] - \
+        correct_guesses
+
+    print("iforest Correct guesses:", correct_guesses)
+    print("iforest Incorrect guesses:", incorrect_guesses)
+    print("Expected", np.count_nonzero(y), "anomalies")
+
+    iforest_cnf_matrix = confusion_matrix(y, y_pred)
+    iforest_cnf_matrix = iforest_cnf_matrix.astype('float') / \
+            iforest_cnf_matrix.sum(axis=1)[:, np.newaxis]
+
+    print(iforest_cnf_matrix)
 
 
+if __name__ == "__main__":
+    n = 1000 # number of entries
+    p = 300  # features
 
+    infection_pct = 0.05
+    X = np.random.randn(n * p).reshape(n, p)
 
+    # Weight it to the number of features
+    is_anomaly = np.random.rand(n, p) < (infection_pct / p)
+    X[is_anomaly] = 10.0 * np.random.randn() + 5.0
+
+    y = np.zeros(shape=(n,))
+
+    tmp = np.array([np.any(r) for r in is_anomaly])
+    y[tmp] = 1.0
+
+    run_plane_simul(X, y)
+    print("Done plane simul-----")
+    run_iforest_simul(X, y)
