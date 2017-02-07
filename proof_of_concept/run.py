@@ -6,7 +6,7 @@ from planes import RandomHyperplanes
 from iforest import IsolationForest
 
 
-def _gen_hard_data(n, p, infection_pct, variance=10.0, mu=5.0):
+def gen_hard_data(n, p, infection_pct, variance=10.0, mu=5.0):
     X = np.random.randn(n, p)
 
     # hard data
@@ -22,7 +22,7 @@ def _gen_hard_data(n, p, infection_pct, variance=10.0, mu=5.0):
     return (X, y)
 
 
-def _gen_easy_data(n, p, infection_pct, variance=10.0, mu=5.0):
+def gen_easy_data(n, p, infection_pct, variance=10.0, mu=5.0):
     X = np.random.randn(n, p)
     is_anomaly = np.random.choice(n, size=int(infection_pct*n), replace=False)
     X[is_anomaly] = variance * np.random.randn(is_anomaly.shape[0], p) + mu
@@ -30,7 +30,7 @@ def _gen_easy_data(n, p, infection_pct, variance=10.0, mu=5.0):
     y[is_anomaly] = 1.0
     return (X, y)
 
-def _gen_two_clusters(n, p, infection_pct, variance=0.01, mu=0):
+def gen_two_clusters(n, p, infection_pct, variance=0.01, mu=0):
     X = np.zeros(shape=(n, p))
     for row in X:
         if np.random.rand() < 0.5:
@@ -47,9 +47,9 @@ def _gen_two_clusters(n, p, infection_pct, variance=0.01, mu=0):
 
     return (X, y)
 
-def run_iforest_simul(points, y):
+def run_iforest_simul(points, y, n_estimators, method='iforest'):
     # print("Beginning iforest fit...")
-    iforest = IsolationForest(n_estimators=N_ESTIMATORS)
+    iforest = IsolationForest(n_estimators=n_estimators, method=method)
     iforest = iforest.fit(points)
     # print("done fitting")
 
@@ -90,9 +90,9 @@ def run_iforest_simul(points, y):
     return (None, depths, None, y, np.mean(anomalous_depths), np.mean(non_anomalous_depths))
 
 
-def run_plane_simul(points, y):
+def run_plane_simul(points, y, n_estimators):
     # print("Beginning plane fit...")
-    rhp = RandomHyperplanes(n_estimators=N_ESTIMATORS)
+    rhp = RandomHyperplanes(n_estimators=n_estimators)
     rhp = rhp.fit(points)
     # print("done fitting")
 
