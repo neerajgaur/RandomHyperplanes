@@ -2,7 +2,7 @@
 import numpy as np
 # from scipy.stats import scoreatpercentile
 # from sklearn.metrics import confusion_matrix
-from planes import RandomHyperplanes
+from planes import RandomProjectionForest
 from iforest import IsolationForest
 
 
@@ -56,7 +56,7 @@ def run_iforest_simul(points, y, n_estimators, method='iforest'):
 #     scores = iforest.decision_function(points)
 #     threshold = scoreatpercentile(scores, 100 - SCORE_AT)
 #     anomalies = scores >= threshold
-#     y_pred = np.zeros(shape=anomalies.shape)
+#     y_pred = np.zeros(shape=anomalies.s`hape)
 #     y_pred[anomalies] = 1
 
 #     """
@@ -92,7 +92,7 @@ def run_iforest_simul(points, y, n_estimators, method='iforest'):
 
 def run_plane_simul(points, y, n_estimators):
     # print("Beginning plane fit...")
-    rhp = RandomHyperplanes(n_estimators=n_estimators)
+    rhp = RandomProjectionForest(n_estimators=n_estimators)
     rhp = rhp.fit(points)
     # print("done fitting")
 
