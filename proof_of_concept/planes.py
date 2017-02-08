@@ -24,14 +24,15 @@ def harmonic_approx(n):
     return np.log(n) + 0.5772156649
 
 class RandomHyperplanes(object):
-    def __init__(self, n_estimators=10, method=None):
+    def __init__(self, n_estimators=10, method=None, max_depth=50):
         self.method = method
         self.n_estimators = n_estimators
+        self.max_depth = max_depth
 
     def fit(self, points):
         self.planes = []
         for i in range(self.n_estimators):
-            self.planes.append(HyperplaneCollection(points, self.method))
+            self.planes.append(HyperplaneCollection(points, self.method, max_depth=self.max_depth))
             return self
 
     def decision_function(self, points):
@@ -46,13 +47,22 @@ class RandomHyperplanes(object):
         mean_depths = np.mean(depths, axis=0)
         return mean_depths
 
+    def predict(self, X, score_at=97.5):
+        scores = self.decision_function(X)
+        preds = np.zeros(shape=(scores.shape[0]))
+        threshold = scoreatpercentile(scores, score_at)
+        preds[np.where(scores >= threshold)] = 1
+        return preds
+
+
 class HyperplaneCollection(object):
-    def __init__(self, points, method=None, group_threshold=15, depth=1):
+    def __init__(self, points, method=None, group_threshold=15, depth=1, max_depth=50):
         self.method = method
         self.child_left = self.child_right = None
         self.points = points
         self.group_threshold = group_threshold
         self.num_points = self.points.shape[0]
+        self.max_depth = max_depth
         self.split(self.points, depth)
 
     def __str__(self):
@@ -64,7 +74,7 @@ class HyperplaneCollection(object):
 
     def split(self, points, depth=1):
         plane, points_left, points_right = self.get_split(points)
-        if not plane or depth >= 50:
+        if not plane or depth >= self.max_depth:
             return self
         self.splitting_plane = plane
         self.child_left = HyperplaneCollection(points_left, depth=depth + 1)

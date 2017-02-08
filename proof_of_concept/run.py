@@ -30,7 +30,7 @@ def _gen_easy_data(n, p, infection_pct, variance=10.0, mu=5.0):
     y[is_anomaly] = 1.0
     return (X, y)
 
-def _gen_two_clusters(n, p, infection_pct, variance=0.01, mu=0):
+def _gen_two_clusters(n, p, infection_pct, variance=0.01 ** 2 , mu=0):
     X = np.zeros(shape=(n, p))
     for row in X:
         if np.random.rand() < 0.5:
@@ -38,7 +38,6 @@ def _gen_two_clusters(n, p, infection_pct, variance=0.01, mu=0):
         else:
             row[0] = -5
 
-    variance = (0.01 ** 2)
     X +=  variance * np.random.randn(n, p)
     is_anomaly = np.random.choice(n, size=10, replace=False)
     X[is_anomaly] = variance * np.random.randn(is_anomaly.shape[0], p)
