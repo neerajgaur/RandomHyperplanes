@@ -2,7 +2,7 @@
 import numpy as np
 
 
-class RandomProjectionForest(object):
+class RandomProjectionForestOld(object):
     def __init__(self, n_estimators=10):
         self.n_estimators = n_estimators
 
@@ -46,7 +46,7 @@ class RandomProjectionTree(object):
     def build(self, points):
         self.num_points = points.shape[0]
         plane, idx_left, idx_right = self.get_split(points)
-        if plane is None or self.depth >= 50:
+        if plane is None or self.depth >= 100:
             return self
 
         self.child_left = RandomProjectionTree(depth=self.depth + 1).build(points[idx_left, :])

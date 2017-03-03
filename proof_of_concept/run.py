@@ -2,8 +2,9 @@
 import numpy as np
 # from scipy.stats import scoreatpercentile
 # from sklearn.metrics import confusion_matrix
-from planes import RandomProjectionForest
+from planes import RandomProjectionForestOld
 from iforest import IsolationForest
+from projections import RandomProjectionForest
 
 
 def gen_hard_data(n, p, infection_pct, variance=10.0, mu=5.0):
@@ -84,6 +85,18 @@ def run_iforest_simul(points, y, n_estimators, method='iforest'):
     depths = iforest.get_depths(points)
     anomalous_depths = depths[np.where(y==1.0)]
     non_anomalous_depths = depths[np.where(y==0.0)]
+    # print("Average anomalous depth:", np.mean(anomalous_depths))
+    # print("Average non-anomalous depth:", np.mean(non_anomalous_depths))
+    return (None, depths, None, y, np.mean(anomalous_depths), np.mean(non_anomalous_depths))
+
+
+def run_plane_simul_old(points, y, n_estimators):
+    # print("Beginning plane fit...")
+    rhp = RandomProjectionForestOld(n_estimators=n_estimators)
+    rhp = rhp.fit(points)
+    depths = rhp.get_depths(points)
+    anomalous_depths = depths[np.where(y == 1.0)]
+    non_anomalous_depths = depths[np.where(y == 0.0)]
     # print("Average anomalous depth:", np.mean(anomalous_depths))
     # print("Average non-anomalous depth:", np.mean(non_anomalous_depths))
     return (None, depths, None, y, np.mean(anomalous_depths), np.mean(non_anomalous_depths))

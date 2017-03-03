@@ -3,6 +3,8 @@ import numpy as np
 from scipy.stats import scoreatpercentile
 from sklearn.metrics import confusion_matrix
 
+MAX_DEPTH = 1000
+
  # sys.setrecursionlimit(50000)
 
 # Steps for the algorithm
@@ -25,7 +27,7 @@ class IsolationForest(object):
     def fit(self, points):
         self.trees = []
         for i in range(self.n_estimators):
-            self.trees.append(IsolationTree(points, method=self.method))
+            self.trees.append(IsolationTree(method=self.method).fit(points))
 
         return self
 
@@ -50,16 +52,17 @@ class IsolationForest(object):
 
 
 class IsolationTree(object):
-    def __init__(self, points, group_threshold=15, depth=1, method='iforest'):
+    def __init__(self, group_threshold=15, depth=1, method='iforest'):
         self.method = method
         self.child_left = self.child_right = None
-        self.points = points
-        self.group_threshold = group_threshold
-        self.num_points = self.points.shape[0]
-        self.split(self.points, depth)
 
     def __str__(self):
         return f"<{self.__class__.__name__} num_points:{self.num_points}>"
+
+    def fit(self, points):
+        self.num_points = points.shape[0]
+        self.split(points)
+        return self
 
     @property
     def is_leaf(self):
@@ -68,12 +71,12 @@ class IsolationTree(object):
     def split(self, points, depth=1):
         node, points_left, points_right = self.get_split(points)
 
-        if not node or depth >= 50:
+        if not node or depth >= MAX_DEPTH:
             return self
 
         self.node = node
-        self.child_left = IsolationTree(points_left, depth=depth + 1, method=self.method)
-        self.child_right = IsolationTree(points_right, depth=depth + 1, method=self.method)
+        self.child_left = IsolationTree(depth=depth + 1, method=self.method).fit(points_left)
+        self.child_right = IsolationTree(depth=depth + 1, method=self.method).fit(points_right)
 
     def decision_function(self, points):
         return np.array([self.get_depth(point) for point in points])
