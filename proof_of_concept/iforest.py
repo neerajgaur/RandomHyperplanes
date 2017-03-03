@@ -17,15 +17,17 @@ from sklearn.metrics import confusion_matrix
 #   7. If an individual point is left, stop iteration
 #
 class IsolationForest(object):
-    def __init__(self, n_estimators=10, max_depth=50):
+
+    def __init__(self, n_estimators=10, method='iforest', max_depth=-1):
         self.n_estimators = n_estimators
-        self.max_depth = max_depth
+        self.method = method
 
     def fit(self, points):
         self.trees = []
         for i in range(self.n_estimators):
-            self.trees.append(IsolationTree(points, max_depth=self.max_depth))
-            return self
+            self.trees.append(IsolationTree(points, method=self.method))
+        
+        return self
 
     def decision_function(self, points):
         depths = np.array([tree.decision_function(points) for tree in self.trees])
@@ -48,7 +50,8 @@ class IsolationForest(object):
 
 
 class IsolationTree(object):
-    def __init__(self, points, group_threshold=15, depth=1, max_depth=50):
+    def __init__(self, points, group_threshold=15, depth=1, method='iforest'):
+        self.method = method        
         self.child_left = self.child_right = None
         self.points = points
         self.group_threshold = group_threshold
@@ -70,8 +73,8 @@ class IsolationTree(object):
             return self
 
         self.node = node
-        self.child_left = IsolationTree(points_left, depth=depth + 1)
-        self.child_right = IsolationTree(points_right, depth=depth + 1)
+        self.child_left = IsolationTree(points_left, depth=depth + 1, method=self.method)
+        self.child_right = IsolationTree(points_right, depth=depth + 1, method=self.method)
 
     def decision_function(self, points):
         return np.array([self.get_depth(point) for point in points])
@@ -88,7 +91,12 @@ class IsolationTree(object):
     def get_split(self, points):
         if self.num_points <2:
             return (None, None, None)
-        split_feature = sample_feature(points)
+        method = self.method
+        if method == 'iforest':
+            feature_ranges = None
+        elif method == 'rcf':
+            feature_ranges = get_feature_ranges(points)
+        split_feature = sample_feature(points, feature_ranges, method)
         split_threshold = sample_split_threshold(points, split_feature)
         node = Node(split_threshold, split_feature)
 
@@ -126,9 +134,15 @@ def generate_point(points):
     for min_, max_, in get_feature_ranges(points):
         yield np.random.uniform(low=min_, high=max_)
 
-def sample_feature(point):
+def sample_feature(point, feature_ranges=None, method='iforest'):
     length = point.shape[-1]
-    return np.random.randint(low=0, high=length)
+    if method == 'iforest':
+        feature = np.random.randint(low=0, high=length)
+    elif method == 'rcf':
+        ranges = [abs(max_range - min_range) for max_range, min_range in feature_ranges]
+        ranges = np.cumsum(ranges)
+        feature = next(x for x in range(len(ranges)) if ranges[x] >= np.random.uniform(low=0, high=np.max(ranges)))
+    return feature
 
 def sample_split_threshold(points, feature):
     return list(generate_point(points))[feature]
