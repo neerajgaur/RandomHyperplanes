@@ -1,14 +1,17 @@
 """ Proof of concept for the random-cut-hyperplanes idea """
 import numpy as np
 
+
 class RandomProjectionForest(object):
     def __init__(self, n_estimators=10):
         self.n_estimators = n_estimators
+        self.max_depth = max_depth
 
     def fit(self, points):
         self.trees = []
         for i in range(self.n_estimators):
             self.trees.append(RandomProjectionTree().build(points))
+            
         return self
 
     def decision_function(self, points):
@@ -46,6 +49,7 @@ class RandomProjectionTree(object):
         plane, idx_left, idx_right = self.get_split(points)
         if plane is None or self.depth >= 50:
             return self
+        
         self.child_left = RandomProjectionTree(depth=self.depth + 1).build(points[idx_left, :])
         self.child_right = RandomProjectionTree(depth=self.depth + 1).build(points[idx_right, :])
         return self

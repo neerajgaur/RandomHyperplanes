@@ -17,7 +17,8 @@ from sklearn.metrics import confusion_matrix
 #   7. If an individual point is left, stop iteration
 #
 class IsolationForest(object):
-    def __init__(self, n_estimators=10, method='iforest'):
+
+    def __init__(self, n_estimators=10, method='iforest', max_depth=-1):
         self.n_estimators = n_estimators
         self.method = method
 
@@ -25,6 +26,7 @@ class IsolationForest(object):
         self.trees = []
         for i in range(self.n_estimators):
             self.trees.append(IsolationTree(points, method=self.method))
+        
         return self
 
     def decision_function(self, points):
@@ -39,6 +41,13 @@ class IsolationForest(object):
         mean_depths = np.mean(depths, axis=0)
         return mean_depths
 
+    def predict(self, X, score_at=97.5):
+        scores = self.decision_function(X)
+        preds = np.zeros(shape=(scores.shape[0]))
+        threshold = scoreatpercentile(scores, score_at)
+        preds[np.where(scores >= threshold)] = 1
+        return preds
+
 
 class IsolationTree(object):
     def __init__(self, points, group_threshold=15, depth=1, method='iforest'):
@@ -47,6 +56,7 @@ class IsolationTree(object):
         self.points = points
         self.group_threshold = group_threshold
         self.num_points = self.points.shape[0]
+        self.max_depth = max_depth
         self.split(self.points, depth)
 
     def __str__(self):
@@ -59,7 +69,7 @@ class IsolationTree(object):
     def split(self, points, depth=1):
         node, points_left, points_right = self.get_split(points)
 
-        if not node or depth >= 50:
+        if not node or depth >= self.max_depth:
             return self
 
         self.node = node

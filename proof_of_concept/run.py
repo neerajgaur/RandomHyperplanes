@@ -38,7 +38,6 @@ def gen_two_clusters(n, p, infection_pct, variance=0.01, mu=0):
         else:
             row[0] = -5
 
-    variance = (0.01 ** 2)
     X +=  variance * np.random.randn(n, p)
     is_anomaly = np.random.choice(n, size=10, replace=False)
     X[is_anomaly] = variance * np.random.randn(is_anomaly.shape[0], p)
