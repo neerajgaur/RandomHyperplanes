@@ -26,7 +26,7 @@ class IsolationForest(object):
         self.trees = []
         for i in range(self.n_estimators):
             self.trees.append(IsolationTree(points, method=self.method))
-        
+
         return self
 
     def decision_function(self, points):
@@ -51,12 +51,11 @@ class IsolationForest(object):
 
 class IsolationTree(object):
     def __init__(self, points, group_threshold=15, depth=1, method='iforest'):
-        self.method = method        
+        self.method = method
         self.child_left = self.child_right = None
         self.points = points
         self.group_threshold = group_threshold
         self.num_points = self.points.shape[0]
-        self.max_depth = max_depth
         self.split(self.points, depth)
 
     def __str__(self):
@@ -69,7 +68,7 @@ class IsolationTree(object):
     def split(self, points, depth=1):
         node, points_left, points_right = self.get_split(points)
 
-        if not node or depth >= self.max_depth:
+        if not node or depth >= 50:
             return self
 
         self.node = node
