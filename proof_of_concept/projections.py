@@ -11,7 +11,8 @@ class RandomProjectionForest(IsolationForest):
         self.random_vectors = self.generate_random_vectors(points)
 
         for vector in self.random_vectors:
-            positions = np.array([p - p.dot(vector) * vector for p in points])
+            positions = points.dot(vector).reshape(points.shape[0], 1)
+            # positions = np.array([p - p.dot(vector) * vector for p in points])
             self.estimators.append((IsolationTree().fit(positions), vector))
 
         return self
@@ -35,7 +36,8 @@ class RandomProjectionForest(IsolationForest):
     def get_depths(self, points):
         depths = []
         for tree, vector in self.estimators:
-            positions = np.array([p - p.dot(vector) * vector for p in points])
+            positions = points.dot(vector).reshape(points.shape[0], 1)
+            # positions = np.array([p - p.dot(vector) * vector for p in points])
             depths.append(tree.decision_function(positions))
 
         mean_depths = np.mean(depths, axis=0)

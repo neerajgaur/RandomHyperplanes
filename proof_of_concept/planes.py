@@ -14,7 +14,7 @@ class RandomProjectionForestOld(object):
         return self
 
     def decision_function(self, points):
-        depths = np.array([tress.decision_function(points) for tree in self.trees])
+        depths = np.array([tree.decision_function(points) for tree in self.trees])
         mean_depths = np.mean(depths, axis=0)
         # Normalize the points
         scores = 2**-(mean_depths / self.average_path_length(points.shape[0]))
@@ -25,10 +25,10 @@ class RandomProjectionForestOld(object):
         mean_depths = np.mean(depths, axis=0)
         return mean_depths
 
-    def average_path_length(n):
+    def average_path_length(self, n):
         return 2 * self.harmonic_approx(n - 1) - (2 * (n - 1) / n)
 
-    def harmonic_approx(n):
+    def harmonic_approx(self, n):
         return np.log(n) + 0.5772156649
 
 class RandomProjectionTree(object):
