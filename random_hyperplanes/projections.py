@@ -1,6 +1,6 @@
 """ Proof of concept for the random-cut-hyperplanes idea """
 import numpy as np
-from iforest import IsolationForest, IsolationTree
+from random_hyperplanes.iforest import IsolationForest, IsolationTree
 
 
 class RandomProjectionForest(IsolationForest):
@@ -47,6 +47,16 @@ class RandomProjectionForest(IsolationForest):
 
         mean_depths = np.mean(depths, axis=0)
         return mean_depths
+
+    def get_depth_per_tree(self, point):
+        depths = []
+        for tree, vector in self.estimators:
+            positions = point.dot(vector).reshape(point.shape[0], 1)
+            # positions = np.sum(points * vector, axis=1)
+            # positions = np.array([p - p.dot(vector) * vector for p in points])
+            depths.append(tree.decision_function(positions)[0])
+
+        return depths
 
     def average_path_length(self, n):
         return 2 * self.harmonic_approx(n - 1) - (2 * (n - 1) / n)
