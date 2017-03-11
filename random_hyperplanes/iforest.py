@@ -24,6 +24,9 @@ class IsolationForest(object):
         self.n_estimators = n_estimators
         self.method = method
 
+    def __str__(self):
+        return 'Isolation Forest'
+
     def fit(self, points):
         self.trees = []
         for i in range(self.n_estimators):

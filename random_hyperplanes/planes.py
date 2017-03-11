@@ -7,6 +7,9 @@ class RandomProjectionForestOld(object):
     def __init__(self, n_estimators=10, method='iforest'):
         self.n_estimators = n_estimators
 
+    def __str__(self):
+        return 'Random Projection Forest - Old'
+
     def fit(self, points):
         self.trees = []
         for i in range(self.n_estimators):
@@ -85,10 +88,13 @@ class RandomProjectionTree(object):
             splitting_plane = self.generate_random_vector(points)
             self.splitting_plane = splitting_plane
 
+        # positions = points - splitting_plane[1]
+        # positions = positions.dot(splitting_plane[0])
         positions = points.dot(splitting_plane)
         if split_point is None:
             split_point = np.random.uniform(np.min(positions), np.max(positions))
             self.split_point = split_point
+            # self.split_point = split_point = 0
 
         idx_left = np.where(positions < split_point)[0]
         idx_right = np.where(positions >= split_point)[0]
@@ -102,6 +108,23 @@ class RandomProjectionTree(object):
 
     def generate_random_vector(self, points):
         p = points.shape[1]
-        vector = np.random.randn(p)
+        # min_ = np.amin(points, axis=0)
+        # max_ = np.amax(points, axis=0)
+        # vector = np.random.uniform(min_, max_, size=(points.shape[-1],))
+        # point = np.random.uniform(min_, max_, size=(points.shape[-1],))
+        # vector = np.random.randn(p)
+
+        mean = np.mean(points, axis=0)
+        var  = np.var(points, axis=0)
+
+        vector = var * np.random.randn(p) + mean
+        # point  = var * np.random.randn(p) + mean
+
+        # vector = np.random.multivariate_normal(mean=mean, cov=np.identity(p), size=(p,1))
+        # point  = np.random.multivariate_normal(mean=mean, cov=np.identity(p), size=(p,1))
+
         vector /= np.linalg.norm(vector)
+        # point  /= np.linalg.norm(point)
+
+        # return (vector - point, point)
         return vector

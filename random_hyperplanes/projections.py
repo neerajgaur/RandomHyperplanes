@@ -9,11 +9,15 @@ class RandomProjectionForest(IsolationForest):
             n_estimators=n_estimators,
             method=method)
 
+    def __str__(self):
+        return 'Random Projection Forest'
+
     def fit(self, points):
         self.estimators = []
         self.random_vectors = self.generate_random_vectors(points)
 
         for vector in self.random_vectors:
+            # positions = points - point
             positions = points.dot(vector).reshape(points.shape[0], 1)
             # positions = np.array([p - p.dot(vector) * vector for p in points])
             self.estimators.append((IsolationTree(
@@ -24,9 +28,16 @@ class RandomProjectionForest(IsolationForest):
     def generate_random_vectors(self, points):
         p = points.shape[1]
         vectors = []
+        mean = np.mean(points, axis=0)
+        var  = np.var( points, axis=0)
+
         for _ in range(self.n_estimators):
-            vector = np.random.randn(p)
+            vector = var * np.random.randn(p) + mean
+            # point  = var * np.random.randn(p) + mean
+
             vector /= np.linalg.norm(vector)
+            # point  /= np.linalg.norm(point)
+            # vectors.append((vector - point, point))
             vectors.append(vector)
 
         return vectors

@@ -2,9 +2,9 @@
 import numpy as np
 # from scipy.stats import scoreatpercentile
 # from sklearn.metrics import confusion_matrix
-from planes import RandomProjectionForestOld
-from iforest import IsolationForest
-from projections import RandomProjectionForest
+from random_hyperplanes.planes import RandomProjectionForestOld
+from random_hyperplanes.iforest import IsolationForest
+from random_hyperplanes.projections import RandomProjectionForest
 
 
 def gen_hard_data(n, p, infection_pct, variance=10.0, mu=5.0):

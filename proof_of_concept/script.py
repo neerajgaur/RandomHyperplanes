@@ -1,9 +1,15 @@
 import numpy as np
-from projections import RandomProjectionForest
+from random_hyperplanes.planes import RandomProjectionForestOld
+from random_hyperplanes.projections import RandomProjectionForest
 
-X = np.array([[1, 1, 1], [-100, -10000, -10000], [2, 2, 2], [3, 3, 3], [4, 4, 4]])
-forest = RandomProjectionForest(n_estimators=10, method='rcf')
+X = np.array([[1, 1, 1], [10_000_000, 10_000_000, 10_000_000], [-10_000_000, -10_000_000, -10_000_000], [-100, -10000, -10000], [2, 2, 2], [3, 3, 3], [4, 4, 4]])
+forest = RandomProjectionForestOld(n_estimators=10)
+forest2 = RandomProjectionForest(n_estimators=10)
 
 forest = forest.fit(X)
-print(forest.decision_function(X))
-print(forest.estimators)
+print(X)
+print('Old',forest.decision_function(X))
+
+forest2 = forest2.fit(X)
+print('New',forest2.decision_function(X))
+# print(forest.estimators)
