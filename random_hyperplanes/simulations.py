@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from random_hyperplanes import iforest, projections, planes, synthetic_data
 
 CLASSIFIERS = (
-    projections.RandomProjectionForest,
     planes.RandomProjectionForestOld,
+    projections.RandomProjectionForest,
     iforest.IsolationForest,
 )
 

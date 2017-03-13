@@ -58,8 +58,8 @@ class RandomProjectionTree(object):
 
     def build(self, points):
         self.num_points = points.shape[0]
-        plane, idx_left, idx_right = self.get_split(points)
-        if plane is None or self.depth >= 100:
+        vector, idx_left, idx_right = self.get_split(points)
+        if vector is None or self.depth >= 100:
             return self
 
         self.child_left = RandomProjectionTree(depth=self.depth + 1).build(points[idx_left, :])
@@ -75,30 +75,34 @@ class RandomProjectionTree(object):
             depths = np.array([self.depth])
 
         else:
-            _, idx_left, idx_right = self.split_points(points,
-                                                       self.splitting_plane,
-                                                       self.split_point)
+            _, idx_left, idx_right = self.split_points(
+                points, self.vector, self.split_point)
+
             depths[idx_left] = self.child_left.get_depths(points[idx_left, :])
             depths[idx_right] = self.child_right.get_depths(points[idx_right, :])
 
         return depths
 
-    def split_points(self, points, splitting_plane=None, split_point=None):
-        if splitting_plane is None:
-            splitting_plane = self.generate_random_vector(points)
-            self.splitting_plane = splitting_plane
+    def split_points(self, points, vector=None, split_point=None):
+        if vector is None:
+            vector = self.generate_random_vector(points)
+            self.vector = vector
 
-        # positions = points - splitting_plane[1]
-        # positions = positions.dot(splitting_plane[0])
-        positions = points.dot(splitting_plane)
-        if split_point is None:
+        if points.shape[-1] != vector.shape[0]:
+            diff = vector.shape[0] - points.shape[-1]
+            zeros = np.zeros((points.shape[0], diff))
+            points = np.column_stack([points, zeros])
+
+        positions = points.dot(vector)
+
+        if split_point == None:
             split_point = np.random.uniform(np.min(positions), np.max(positions))
             self.split_point = split_point
-            # self.split_point = split_point = 0
 
         idx_left = np.where(positions < split_point)[0]
         idx_right = np.where(positions >= split_point)[0]
-        return (splitting_plane, idx_left, idx_right)
+
+        return (vector, idx_left, idx_right)
 
     def get_split(self, points):
         if self.num_points < 2:
@@ -106,25 +110,13 @@ class RandomProjectionTree(object):
 
         return self.split_points(points)
 
-    def generate_random_vector(self, points):
-        p = points.shape[1]
-        # min_ = np.amin(points, axis=0)
-        # max_ = np.amax(points, axis=0)
-        # vector = np.random.uniform(min_, max_, size=(points.shape[-1],))
-        # point = np.random.uniform(min_, max_, size=(points.shape[-1],))
-        # vector = np.random.randn(p)
-
+    def generate_random_vector(self, points, normalize=False):
+        p = points.shape[-1]
         mean = np.mean(points, axis=0)
-        var  = np.var(points, axis=0)
-
+        var  = np.var( points, axis=0)
         vector = var * np.random.randn(p) + mean
-        # point  = var * np.random.randn(p) + mean
 
-        # vector = np.random.multivariate_normal(mean=mean, cov=np.identity(p), size=(p,1))
-        # point  = np.random.multivariate_normal(mean=mean, cov=np.identity(p), size=(p,1))
+        if normalize:
+            vector /= np.linalg.norm(vector)
 
-        vector /= np.linalg.norm(vector)
-        # point  /= np.linalg.norm(point)
-
-        # return (vector - point, point)
         return vector

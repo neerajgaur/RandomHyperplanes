@@ -29,12 +29,18 @@ class IsolationForest(object):
 
     def fit(self, points):
         self.trees = []
+        self.fit_shape = points.shape
         for i in range(self.n_estimators):
             self.trees.append(IsolationTree(method=self.method).fit(points))
 
         return self
 
     def decision_function(self, points):
+        if points.shape[-1] != self.fit_shape[0]:
+            diff = self.fit_shape[0] - points.shape[-1]
+            zeros = np.zeros((points.shape[0], diff))
+            points = np.column_stack([points, zeros])
+
         depths = np.array([tree.decision_function(points) for tree in self.trees])
         mean_depths = np.mean(depths, axis=0)
         # Normalize the points
